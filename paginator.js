@@ -1,6 +1,5 @@
 var zewa = zewa || Object.create(null);
 zewa.paginator = (function($){
-    //@TODO; add loader dynamically
     var pagination = [];
 
     var buildQueryURL = function(paginator) {
@@ -34,17 +33,19 @@ zewa.paginator = (function($){
             paginator.next.show();
         }
 
-    }
+    };
 
     var renderResults = function(paginator, results) {
 
         if(results == "") {
+
             if(paginator.searchData === false) {
                 paginator.lastPage = true;
             }
             if(paginator.page > 1) {
                 paginator.page--;
             }
+
         } else {
             paginator.lastPage = false;
         }
@@ -62,47 +63,51 @@ zewa.paginator = (function($){
     };
 
     var requestResults = function(paginator, callback, clear){
-        if(paginator.active === false) {
-
-            var activeURL = buildQueryURL(paginator);
-            paginator.active = true;
-            $.get(activeURL, function (response) {
-
-                if(clear === true) {
-                    paginator.container.html('');
-                }
-
-                paginator.active = false;
-                renderResults(paginator, response.trim());
-                paginator.previousResponse = response.trim();
-
-                if (paginator.queue === true) {
-                    requestResults(paginator, function () {
-                        paginator.queue = false;
-                        return callback;
-                    }, clear);
-                }
-
-                if (typeof callback === 'function') {
-                    callback();
-                } // @TODO error handler, throw exception if not a function
-
-            });
-
+        if(paginator.active !== false) {
+            paginator.active.abort();
         }
+
+        if(paginator.type == 'traditional') {
+            $('html, body').animate({
+                scrollTop: paginator.wrapper.offset().top / 2
+            }, 150);
+        }
+
+        var activeURL = buildQueryURL(paginator);
+        paginator.active = $.get(activeURL, function (response) {
+
+            if(clear === true) {
+                paginator.container.html('');
+            }
+
+            paginator.active = false;
+            renderResults(paginator, response.trim());
+            paginator.previousResponse = response.trim();
+
+            if(typeof paginator.callback === 'function') {
+                paginator.callback();
+            }
+            if (typeof callback === 'function') {
+                callback();
+            } // @TODO error handler, throw exception if not a function
+
+        });
+
     };
 
     var preparePaginatorSearch = function(paginator) {
-        paginator.wrapper.on('change blur', '.paginated-search :input', function(e){
+        paginator.wrapper.on('change keyup', '.paginated-search :input', function(e){
             //Set the page back to 1, since we're searching.
             paginator.page = 1;
 
-            if(e.which !== undefined && e.which !== 0) {
+            if(e.which !== undefined && e.which !== 0 && e.which !== 9 && e.which !== 18) {
                 //return valid, but non-related keypresses
                 if(e.which >= 90 && e.which <= 48 && e.which != 8 && e.which != 13) {
                     return;
                 }
             }
+
+            paginator.container.html(paginator.loader);
 
             paginator.searchData = paginator.searchObject.serialize();
             paginator.searchData = false;
@@ -112,15 +117,9 @@ zewa.paginator = (function($){
                 }
             });
 
-            if($('html, body').scrollTop() !== 0) {
-                $('html, body').animate({scrollTop: 0}, 1000, function () {
-                    requestResults(paginator, null, true);
-                });
-            } else {
-                requestResults(paginator, null, true);
-            }
+            requestResults(paginator, null, true);
         });
-    }
+    };
 
     var prepareTraditionalPaginator = function(paginator) {
         paginator.buttons.removeClass('hide');
@@ -128,6 +127,7 @@ zewa.paginator = (function($){
             var that = $(this);
             paginator.direction = that.data('paginate-direction');
 
+            paginator.container.html(paginator.loader);
             if(paginator.direction == 'next' && paginator.lastPage !== true) {
                 paginator.page++;
             } else if(paginator.direction == 'previous' && paginator.page > 0) {
@@ -185,6 +185,7 @@ zewa.paginator = (function($){
     var Paginator = function(alias, wrapper) {
         this.wrapper = wrapper;
         this.container = wrapper.find('.paginated-container');
+        this.loader = this.container.find('.loader').clone();
         this.sourceURL = wrapper.data('paginate-url');
         this.queryPrefix = wrapper.data('paginate-query-prefix');
         this.type = wrapper.data('paginate-type');
@@ -202,9 +203,15 @@ zewa.paginator = (function($){
         this.searchData = false;
         this.active = false;
         this.queue = false;
-        this.page = 1;
+        this.total = false;
+        this.callback = false;
         this.lastPage = false;
         this.initialRun = true;
+        if(wrapper.data('paginate-page') !== undefined && wrapper.data('paginate-page') != 0) {
+            this.page = wrapper.data('paginate-page');
+        } else {
+            this.page = 1;
+        }
 
         preparePaginator(this);
         return this;
@@ -230,6 +237,10 @@ zewa.paginator = (function($){
         },
         destroy : function(alias){
 
+        },
+        //replace refresh callback, or perform after?
+        attachCallback : function(alias, callback) {
+            pagination[alias].callback = callback;
         }
     }
 }(jQuery));
