@@ -67,7 +67,7 @@ zewa.paginator = (function($){
             paginator.active.abort();
         }
 
-        if(paginator.type == 'traditional') {
+        if(paginator.type == 'traditional' && paginator.initialRun !== true) {
             $('html, body').animate({
                 scrollTop: paginator.wrapper.offset().top / 2
             }, 150);
