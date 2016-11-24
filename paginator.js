@@ -1,19 +1,56 @@
+if (typeof Object.assign != 'function') {
+    Object.assign = function(target) {
+        'use strict';
+        if (target == null) {
+            throw new TypeError('Cannot convert undefined or null to object');
+        }
+
+        target = Object(target);
+        for (var index = 1; index < arguments.length; index++) {
+            var source = arguments[index];
+            if (source != null) {
+                for (var key in source) {
+                    if (Object.prototype.hasOwnProperty.call(source, key)) {
+                        target[key] = source[key];
+                    }
+                }
+            }
+        }
+        return target;
+    };
+}
+
 var zewa = zewa || Object.create(null);
 zewa.paginator = (function($){
     var pagination = [];
+
+
+    var formatQueryString = function(currentURL, newQueryStringParams) {
+        if(currentURL === undefined || newQueryStringParams === undefined) {
+            return;
+        }
+        var currentURL = currentURL.split('#')[0];
+        var queryString = currentURL.split('?')[1];
+        var currentParsed = querystring.parse(queryString);
+        var parsed = querystring.parse(newQueryStringParams);
+        var combined = Object.assign(currentParsed, parsed);
+
+        return '?'+querystring.stringify(combined);
+
+    }
 
     var buildQueryURL = function(paginator) {
 
         var query, currentQueryString, localSearchData = paginator.searchObject.serialize();
 
-        query = paginator.queryPrefix + 'Page=' + paginator.page
-            + '&' + paginator.queryPrefix + 'Offset=' + paginator.offset;
+        query = 'page=' + paginator.page
+            + '&' + 'offset=' + paginator.offset;
 
         if(localSearchData !== false) {
             query += '&' + localSearchData;
         }
 
-        currentQueryString = queryString.formatQueryString(paginator.sourceURL, query);
+        currentQueryString = formatQueryString(paginator.sourceURL, query);
 
         return paginator.sourceURL + currentQueryString;
 
@@ -38,27 +75,22 @@ zewa.paginator = (function($){
     var renderResults = function(paginator, results) {
 
         if(results == "") {
-
-            if(paginator.searchData === false) {
-                paginator.lastPage = true;
-            }
-            if(paginator.page > 1) {
-                paginator.page--;
-            }
-
+            paginator.lastPage = true;
         } else {
             paginator.lastPage = false;
-        }
 
-        if(paginator.initialRun === true
-            || paginator.type == 'traditional' && results !== ""
-        ) {
-            paginator.container.html('');
+            if(paginator.initialRun === true
+                || paginator.type == 'traditional' && results !== ""
+            ) {
+                paginator.container.html('');
+            }
+
+            paginator.container.append(results);
+
+            prepareInfinityPaginator(paginator);
         }
 
         togglePaginationControl(paginator);
-
-        paginator.container.append(results);
         paginator.initialRun = false;
     };
 
@@ -74,6 +106,7 @@ zewa.paginator = (function($){
         }
 
         var activeURL = buildQueryURL(paginator);
+
         paginator.active = $.get(activeURL, function (response) {
 
             if(clear === true) {
@@ -96,7 +129,11 @@ zewa.paginator = (function($){
     };
 
     var preparePaginatorSearch = function(paginator) {
-        paginator.wrapper.on('change keyup', '.paginated-search :input', function(e){
+        //defer binding event for any on page
+        //JS plugins to clear their event firing
+        setTimeout(function(){
+            paginator.wrapper.on('change', '.paginated-search :input', function(e){
+
             //Set the page back to 1, since we're searching.
             paginator.page = 1;
 
@@ -109,7 +146,6 @@ zewa.paginator = (function($){
 
             paginator.container.html(paginator.loader);
 
-            paginator.searchData = paginator.searchObject.serialize();
             paginator.searchData = false;
             $(paginator.searchObject).each(function(key, value){
                 if($(value).val().trim() != "") {
@@ -119,6 +155,7 @@ zewa.paginator = (function($){
 
             requestResults(paginator, null, true);
         });
+        },200);
     };
 
     var prepareTraditionalPaginator = function(paginator) {
@@ -142,28 +179,28 @@ zewa.paginator = (function($){
     };
 
     var prepareInfinityPaginator = function(paginator) {
-        var scrollableElement = document;
-        var scrollableParent = window;
+        var scrollableElement = paginator.container;
+        var scrollableParent = paginator.wrapper;
 
-        if(paginator.wrapper.css('max-height') !== 'none') {
-            scrollableElement = paginator.container;
-            scrollableParent = paginator.wrapper;
-        }
+        setTimeout(function(){
+            $(scrollableElement).on("scroll", function (e) {
+            if((paginator.autoload === false && paginator.initialRun === true) || paginator.lastPage === true) return;
+            var currentScroll = $(scrollableElement).scrollTop();
 
-        $(scrollableParent).scroll(function (e) {
-            var currentScroll = $(scrollableParent).scrollTop();
             if (currentScroll > paginator.position) {
-                //@TODO document needs to change to be relative to parent element, will allow nested scrolling
-                if (((currentScroll + paginator.touchy) + $(scrollableParent).height()) >= $(scrollableElement).height() && paginator.active === false) {
+                if((currentScroll+$(scrollableElement).height()) >= ($(scrollableElement)[0].scrollHeight - paginator.touchy) && paginator.active === false) {
+                    paginator.container.append(paginator.loader);
                     paginator.page++;
                     paginator.paging = true;
-                    requestResults(paginator, function(){
+                    requestResults(paginator, function () {
                         paginator.paging = false;
+                        paginator.container.find('.loader').remove();
                     });
                 }
             }
             paginator.position = currentScroll;
         });
+        },100);
     };
 
     var preparePaginator = function(paginator) {
@@ -179,7 +216,9 @@ zewa.paginator = (function($){
 
         preparePaginatorSearch(paginator);
 
-        requestResults(paginator);
+        if(paginator.autoload === true) {
+            requestResults(paginator);
+        }
     };
 
     var Paginator = function(alias, wrapper) {
@@ -187,9 +226,9 @@ zewa.paginator = (function($){
         this.container = wrapper.find('.paginated-container');
         this.loader = this.container.find('.loader').clone();
         this.sourceURL = wrapper.data('paginate-url');
-        this.queryPrefix = wrapper.data('paginate-query-prefix');
+        // this.queryPrefix = wrapper.data('paginate-query-prefix');
         this.type = wrapper.data('paginate-type');
-        this.touchy = wrapper.data('paginate-touchy');
+        this.touchy = parseInt(wrapper.data('paginate-touchy')) + 10;
         this.offset = wrapper.data('paginate-per-page');
         this.cache = wrapper.data('paginate-cache');
         this.pulse = wrapper.data('paginate-pulse');
@@ -207,6 +246,14 @@ zewa.paginator = (function($){
         this.callback = false;
         this.lastPage = false;
         this.initialRun = true;
+
+        if(wrapper.data('paginate-autoload') === true) {
+            this.autoload = true;
+        } else {
+            this.autoload = false;
+            this.container.find('.loader').remove();
+        }
+
         if(wrapper.data('paginate-page') !== undefined && wrapper.data('paginate-page') != 0) {
             this.page = wrapper.data('paginate-page');
         } else {
@@ -232,7 +279,9 @@ zewa.paginator = (function($){
             });
         },
         refresh : function(alias, callback){
+            pagination[alias].page = 1;
             pagination[alias].initialRun = true;
+            pagination[alias].container.html('');
             requestResults(pagination[alias], callback);
         },
         destroy : function(alias){
