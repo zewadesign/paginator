@@ -132,29 +132,32 @@ zewa.paginator = (function($){
         //defer binding event for any on page
         //JS plugins to clear their event firing
         setTimeout(function(){
-            paginator.wrapper.on('change', '.paginated-search :input', function(e){
+            paginator.wrapper.on('keypress change', '.paginated-search :input', function(e){
 
             //Set the page back to 1, since we're searching.
-            paginator.page = 1;
-
-            if(e.which !== undefined && e.which !== 0 && e.which !== 9 && e.which !== 18) {
-                //return valid, but non-related keypresses
-                if(e.which >= 90 && e.which <= 48 && e.which != 8 && e.which != 13) {
-                    return;
+                paginator.page = 1;
+                if(e.which !== undefined && e.which !== 0 && e.which !== 9 && e.which !== 18) {
+                    //return valid, but non-related keypresses
+                    if(e.which >= 90 && e.which <= 48 && e.which != 8 && e.which != 13) {
+                        return;
+                    }
                 }
-            }
 
-            paginator.container.html(paginator.loader);
+                // enter key, or on change
+                if(e.which === 13 || e.which === undefined) {
+                    paginator.container.html(paginator.loader);
 
-            paginator.searchData = false;
-            $(paginator.searchObject).each(function(key, value){
-                if($(value).val().trim() != "") {
-                    paginator.searchData = true;
+                    paginator.searchData = false;
+                    $(paginator.searchObject).each(function (key, value) {
+                        if ($(value).val().trim() != "") {
+                            paginator.searchData = true;
+                        }
+                    });
+
+                    requestResults(paginator, null, true);
+                    return false;
                 }
             });
-
-            requestResults(paginator, null, true);
-        });
         },200);
     };
 
