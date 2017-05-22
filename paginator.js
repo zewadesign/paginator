@@ -46,6 +46,11 @@ zewa.paginator = (function($){
         query = 'page=' + paginator.page
             + '&' + 'offset=' + paginator.offset;
 
+        //if sort is set
+        if(paginator.sort[0] !== undefined) {
+            query += '&sort=' + paginator.sort[0] + '&direction=' + paginator.sort[1];
+        }
+
         if(localSearchData !== false) {
             query += '&' + localSearchData;
         }
@@ -98,6 +103,7 @@ zewa.paginator = (function($){
         if(paginator.active !== false) {
             paginator.active.abort();
         }
+        paginator.active = true;
 
         if(paginator.type == 'traditional' && paginator.initialRun !== true) {
             $('html, body').animate({
@@ -107,13 +113,12 @@ zewa.paginator = (function($){
 
         var activeURL = buildQueryURL(paginator);
 
-        paginator.active = $.get(activeURL, function (response) {
+        $.get(activeURL, function (response) {
 
             if(clear === true) {
                 paginator.container.html('');
             }
 
-            paginator.active = false;
             renderResults(paginator, response.trim());
             paginator.previousResponse = response.trim();
 
@@ -123,7 +128,7 @@ zewa.paginator = (function($){
             if (typeof callback === 'function') {
                 callback();
             } // @TODO error handler, throw exception if not a function
-
+            paginator.active = false;
         });
 
     };
@@ -161,6 +166,28 @@ zewa.paginator = (function($){
         },200);
     };
 
+    var prepareSort = function(paginator)
+    {
+        paginator.wrapper.on('click', '[data-sortable]', function(){
+            var sortable = $(this).attr('data-sortable');
+            if(sortable != "") {
+                paginator.sort[0] = sortable;
+                if(paginator.activeSortOrder == 'DESC') {
+                    paginator.sort[1] = 'ASC';
+                    paginator.activeSortOrder = 'ASC';
+                    // paginator.activeSortOrder = 'ASC';
+                } else {
+                    paginator.sort[1] = 'DESC';
+                    paginator.activeSortOrder = 'DESC';
+                    // paginator.activeSortOrder = 'DESC';
+                }
+            }
+
+            paginator.container.html('');
+            requestResults(paginator);
+        });
+    }
+
     var prepareTraditionalPaginator = function(paginator) {
         paginator.buttons.removeClass('hide');
         paginator.wrapper.on('click', '.paginated-buttons a', function (e) {
@@ -181,29 +208,54 @@ zewa.paginator = (function($){
         });
     };
 
+
+    var scrollable = function (e, paginator) {
+        if ((paginator.autoload === false && paginator.initialRun === true) || paginator.lastPage === true) return;
+
+        var that = $(e.target),
+            touchy = paginator.touchy + 10,
+            currentScroll,
+            scroll;
+
+
+        if(e.target === document) {
+            scroll = ($(document).height() - $(window).height());
+            currentScroll = $(window).scrollTop() + 10;
+        } else {
+            scroll = that.height() * paginator.page;
+            currentScroll = that.innerHeight() + that.scrollTop();
+        }
+
+        if (paginator.active === false && currentScroll >= paginator.position && currentScroll > scroll) {
+
+            paginator.container.append(paginator.loader);
+            paginator.page++;
+            paginator.paging = true;
+            requestResults(paginator, function () {
+                paginator.paging = false;
+                paginator.container.find('.loader').remove();
+            });
+        }
+        paginator.position = currentScroll;
+    };
+
     var prepareInfinityPaginator = function(paginator) {
-        var scrollableElement = paginator.container;
-        var scrollableParent = paginator.wrapper;
+        if(paginator.wrapper.css('max-height') !== 'none') {
+            paginator.wrapper.on("scroll",  function (e) {
+                scrollable(e, paginator);
+            });
+            paginator.container.on('mousewheel DOMMouseScroll', function (e) {
+                var e0 = e.originalEvent,
+                    delta = e0.wheelDelta || -e0.detail;
 
-        setTimeout(function(){
-            $(scrollableElement).on("scroll", function (e) {
-            if((paginator.autoload === false && paginator.initialRun === true) || paginator.lastPage === true) return;
-            var currentScroll = $(scrollableElement).scrollTop();
-
-            if (currentScroll > paginator.position) {
-                if((currentScroll+$(scrollableElement).height()) >= ($(scrollableElement)[0].scrollHeight - paginator.touchy) && paginator.active === false) {
-                    paginator.container.append(paginator.loader);
-                    paginator.page++;
-                    paginator.paging = true;
-                    requestResults(paginator, function () {
-                        paginator.paging = false;
-                        paginator.container.find('.loader').remove();
-                    });
-                }
-            }
-            paginator.position = currentScroll;
-        });
-        },100);
+                this.scrollTop += ( delta < 0 ? 1 : -1 ) * 30;
+                e.preventDefault();
+            });
+        } else {
+            $(window).on("scroll", function(e){
+                scrollable(e, paginator);
+            });
+        }
     };
 
     var preparePaginator = function(paginator) {
@@ -216,8 +268,9 @@ zewa.paginator = (function($){
                 prepareInfinityPaginator(paginator);
                 break;
         }
-
+        prepareSort(paginator);
         preparePaginatorSearch(paginator);
+
 
         if(paginator.autoload === true) {
             requestResults(paginator);
@@ -231,7 +284,7 @@ zewa.paginator = (function($){
         this.sourceURL = wrapper.data('paginate-url');
         // this.queryPrefix = wrapper.data('paginate-query-prefix');
         this.type = wrapper.data('paginate-type');
-        this.touchy = parseInt(wrapper.data('paginate-touchy')) + 10;
+        this.touchy = parseInt(wrapper.data('paginate-touchy'));
         this.offset = wrapper.data('paginate-per-page');
         this.cache = wrapper.data('paginate-cache');
         this.pulse = wrapper.data('paginate-pulse');
@@ -249,6 +302,9 @@ zewa.paginator = (function($){
         this.callback = false;
         this.lastPage = false;
         this.initialRun = true;
+        this.activeSortOrder = 'DESC';
+        this.sort = [];
+        this.innerScroll = false;
 
         if(wrapper.data('paginate-autoload') === true) {
             this.autoload = true;
@@ -263,6 +319,12 @@ zewa.paginator = (function($){
             this.page = 1;
         }
 
+        var headers = wrapper.find('[data-sortable]');
+        var that = this;
+        if(headers.eq(0).attr('data-sortable') != "") {
+            that.sort = [headers.eq(0).attr('data-sortable'), that.activeSortOrder];
+        }
+        headers.css('cursor','pointer');
         preparePaginator(this);
         return this;
     };
@@ -285,6 +347,8 @@ zewa.paginator = (function($){
             pagination[alias].page = 1;
             pagination[alias].initialRun = true;
             pagination[alias].container.html('');
+            pagination[alias].sourceURL = $("div[data-paginate-alias='"+alias+"']").attr('data-paginate-url');
+
             requestResults(pagination[alias], callback);
         },
         destroy : function(alias){
