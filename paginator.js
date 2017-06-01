@@ -81,7 +81,11 @@ zewa.paginator = (function($){
 
         if(results === "") {
             paginator.lastPage = true;
-            paginator.container.html(paginator.previousResponse);
+            if(paginator.initialRun === true) {
+                paginator.container.html(paginator.emptyResultSet);
+            } else {
+                paginator.container.html(paginator.previousResponse);
+            }
         } else {
             paginator.lastPage = false;
 
@@ -304,6 +308,7 @@ zewa.paginator = (function($){
         this.activeSortOrder = 'DESC';
         this.sort = [];
         this.innerScroll = false;
+        this.emptyResultSet = wrapper.data('paginate-empty-result-message');
 
         if(wrapper.data('paginate-autoload') === true) {
             this.autoload = true;
