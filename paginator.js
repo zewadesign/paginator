@@ -84,15 +84,13 @@ zewa.paginator = (function($){
         } else {
             paginator.lastPage = false;
 
-            if(paginator.initialRun === true
-                || paginator.type == 'traditional' && results !== ""
-            ) {
+            if(paginator.initialRun === true || paginator.type == 'traditional' && results !== "") {
                 paginator.container.html('');
+            } else {
+                prepareInfinityPaginator(paginator);
             }
 
             paginator.container.append(results);
-
-            prepareInfinityPaginator(paginator);
         }
 
         togglePaginationControl(paginator);
