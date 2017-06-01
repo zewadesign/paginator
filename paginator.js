@@ -64,33 +64,34 @@ zewa.paginator = (function($){
     var togglePaginationControl = function(paginator) {
 
         if(paginator.page === 1) {
-            paginator.previous.hide();
+            paginator.wrapper.find('[data-paginate-direction="previous"]').hide();
         } else {
-            paginator.previous.show();
+            paginator.wrapper.find('[data-paginate-direction="previous"]').show();
         }
 
         if(paginator.lastPage === true) {
-            paginator.next.hide();
+            $(paginator.wrapper.find('[data-paginate-direction="next"]')).hide();
         } else {
-            paginator.next.show();
+            paginator.wrapper.find('[data-paginate-direction="next"]').show();
         }
 
     };
 
     var renderResults = function(paginator, results) {
 
-        if(results == "") {
+        if(results === "") {
             paginator.lastPage = true;
+            paginator.container.html(paginator.previousResponse);
         } else {
             paginator.lastPage = false;
 
             if(paginator.initialRun === true || paginator.type == 'traditional' && results !== "") {
                 paginator.container.html('');
+                paginator.container.append(results);
             } else {
                 prepareInfinityPaginator(paginator);
+                paginator.container.append(results);
             }
-
-            paginator.container.append(results);
         }
 
         togglePaginationControl(paginator);
@@ -118,7 +119,9 @@ zewa.paginator = (function($){
             }
 
             renderResults(paginator, response.trim());
-            paginator.previousResponse = response.trim();
+            if(response.trim() !== "") {
+                paginator.previousResponse = response.trim();
+            }
 
             if(typeof paginator.callback === 'function') {
                 paginator.callback();
@@ -288,8 +291,6 @@ zewa.paginator = (function($){
         this.pulse = wrapper.data('paginate-pulse');
         this.buttons = wrapper.find('.paginated-buttons');
         this.searchObject = wrapper.find('.paginated-search :input');
-        this.next = wrapper.find('[data-paginate-direction="next"]');
-        this.previous = wrapper.find('[data-paginate-direction="previous"]');
         this.alias = alias;
         this.paging = false;
         this.position = this.wrapper.scrollTop();
