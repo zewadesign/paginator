@@ -85,6 +85,8 @@ zewa.paginator = (function($){
                 paginator.container.html(paginator.emptyResultSet);
             } else if(paginator.searchData !== true) {
                 paginator.container.html(paginator.previousResponse);
+            } else {
+                paginator.container.html(paginator.emptyResultSet);
             }
         } else {
             paginator.lastPage = false;
