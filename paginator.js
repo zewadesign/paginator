@@ -84,7 +84,6 @@ zewa.paginator = (function($){
             if(paginator.initialRun === true) {
                 paginator.container.html(paginator.emptyResultSet);
             } else if(paginator.searchData !== true) {
-                console.log(paginator.searchData);
                 paginator.container.html(paginator.previousResponse);
             }
         } else {
