@@ -161,7 +161,7 @@ zewa.paginator = (function($){
 
                     paginator.searchData = false;
                     $(paginator.searchObject).each(function (key, value) {
-                        if ($(value).val().trim() != "") {
+                        if ($(value).val() !== null && $(value).val().trim() != "") {
                             paginator.searchData = true;
                         }
                     });
