@@ -105,9 +105,6 @@ zewa.paginator = (function($){
     };
 
     var requestResults = function(paginator, callback, clear){
-        if(paginator.active !== false) {
-            paginator.active.abort();
-        }
         paginator.active = true;
 
         if(paginator.type == 'traditional' && paginator.initialRun !== true) {
@@ -145,7 +142,6 @@ zewa.paginator = (function($){
         //JS plugins to clear their event firing
         setTimeout(function(){
             paginator.wrapper.on('keypress change', '.paginated-search :input', function(e){
-
             //Set the page back to 1, since we're searching.
                 paginator.page = 1;
                 if(e.which !== undefined && e.which !== 0 && e.which !== 9 && e.which !== 18) {
@@ -167,7 +163,6 @@ zewa.paginator = (function($){
                     });
 
                     requestResults(paginator, null, true);
-                    return false;
                 }
             });
         },200);
